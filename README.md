@@ -1,10 +1,15 @@
 # Test UI for Haptic Intensity Sliders
 
-### To run, install python 3, then
+## Installation
+Install Python 3, then
+`pip install nicegui` to install the UI framework.
+
+## Run
+Launch the `sliders_ui.py` script
 ```
-pip install nicegui
 python sliders_ui.py
 ```
+The user interface should display in your browser.
 
-### Screenshot
-![screenshot1](https://user-images.githubusercontent.com/121136111/217034391-0bf1f224-c266-43c9-a3dd-011761aadaf4.png)
+## Screenshot
+![screenshot1](https://user-images.githubusercontent.com/121136111/217092444-94fcbdc8-e316-4f88-864f-af5ace251451.png)
