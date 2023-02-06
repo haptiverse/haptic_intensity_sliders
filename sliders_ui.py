@@ -12,11 +12,8 @@ def to_float(value):
     except:
         return float(0) # 0 if any error
 
-def to_string2(value):
-    return "{:4.2f}".format(to_float(value))    # Format display with 2 decimals
-
 def to_string_db(value):
-    return "{:3.0f} dB".format(to_float(value)) # Format display in dB with no decimals
+    return ("+" if value > 0 else "") + "{:.0f} dB".format(to_float(value)) # Format in dB with no decimals
 
 def clip(value, min, max):
     if value < min:
@@ -25,20 +22,16 @@ def clip(value, min, max):
         value = max
     return value
 
-def safe_20log10(value, safe_threshold=0.001, safe_value=-60):
-    if value < safe_threshold:              # Handle log of values close to zero
-        return safe_value
-    return 20.0 * math.log10(value)
-
 class Settings:
     def __init__(self):
         # These 2 values mimic the hardware persistent settings, UI values are computed from them
-        self._intensity = 1.0
-        self._spectrum = 0.0
+        self._intensity = 0
+        self._spectrum = 0
         # Helper settings
-        self.INTENSITY_RANGE = [0.0, 1.0]
-        self.SPECTRUM_RANGE = [-1.0, 1.0]
-        self.UI_RANGE = [-20.0, 0.0]
+        self.INTENSITY_RANGE = [-30, 0]     # Hardware can go down to -30dB but UI should stay above -20dB
+        self.SPECTRUM_RANGE = [-20, +20]
+        self.MOVEMENT_RANGE = [-20, 0]
+        self.VIBRATION_RANGE = [-20, 0]
         self.set_logger(None)
 
     def set_logger(self, callback):
@@ -60,23 +53,23 @@ class Settings:
 
     @property
     def movement(self):         # Get computed UI movement dB from HW values
-        upper_db = safe_20log10(self._intensity)
-        diff_db = 20.0 * self._spectrum
+        upper_db = self._intensity
+        diff_db = self._spectrum
         if diff_db < 0:            
             mov = upper_db              # Movement is upper
         else:
             mov = upper_db - diff_db    # Movement is lower (positive diff)
-        return clip(round(mov, 0), *self.UI_RANGE)
+        return clip(round(mov, 0), *self.MOVEMENT_RANGE)
 
     @property
     def vibration(self):         # Get computed UI vibration dB 
-        upper_db = safe_20log10(self._intensity)
-        diff_db = 20.0 * self._spectrum
+        upper_db = self._intensity
+        diff_db = self._spectrum
         if diff_db < 0:            
             vib = upper_db + diff_db    # Vibration is lower (negative diff)
         else:                   
             vib = upper_db              # Vibration is upper
-        return clip(round(vib, 0), *self.UI_RANGE)
+        return clip(round(vib, 0), *self.VIBRATION_RANGE)
 
     # Write properties
 
@@ -108,8 +101,8 @@ class Settings:
         upper_db = max(mov, vib)
         diff_db = vib - mov
         # set intensity and spectrum with validation (clip)
-        self._intensity = clip(math.pow(10, upper_db/20.0), *self.INTENSITY_RANGE)
-        self._spectrum = clip(diff_db / 20.0, *self.SPECTRUM_RANGE)
+        self._intensity = clip(upper_db, *self.INTENSITY_RANGE)
+        self._spectrum = clip(diff_db, *self.SPECTRUM_RANGE)
         self.log("  Intensity set to " + str(self._intensity))
         self.log("  Spectrum set to " + str(self._spectrum))
         
@@ -120,12 +113,12 @@ def prep_ui(settings):
         ui.label('Hardware Settings').classes('text-h6')
         with ui.row().classes('w-full justify-between'):
             ui.label('Hardware Intensity:')
-            ui.label().bind_text_from(settings, 'intensity', backward=to_string2)
-        ui.slider(min=0, max=1, step=0.01).bind_value(settings, 'intensity')
+            ui.label().bind_text_from(settings, 'intensity', backward=to_string_db)
+        ui.slider(min=-20, max=0, step=1).bind_value(settings, 'intensity')
         with ui.row().classes('w-full justify-between'):
             ui.label('Hardware Spectrum:')
-            ui.label().bind_text_from(settings, 'spectrum', backward=to_string2)
-        ui.slider(min=-1, max=1, step=0.01).bind_value(settings, 'spectrum')
+            ui.label().bind_text_from(settings, 'spectrum', backward=to_string_db)
+        ui.slider(min=-20, max=20, step=1).bind_value(settings, 'spectrum')
 
     with ui.card().classes('w-96'):
         ui.label('UI Settings').classes('text-h6')
@@ -151,4 +144,4 @@ if __name__ in {"__main__", "__mp_main__"}:  # Allow for nicegui multiprocessing
     settings = Settings()
     # Start UI in browser
     prep_ui(settings)
-    ui.run(port=9000)
+    ui.run(port=9000, title="Haptic Intensity Sliders")
